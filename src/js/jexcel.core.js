@@ -1654,7 +1654,57 @@ console.log(ret);
             obj.resetSelection();
             // Load options
             var options = [];
+
+            const _keys = Object.keys(obj.filters)
+            const results = []
+
+            // Search filter
+            var search = function(query, x, y) {
+                for (var i = 0; i < query.length; i++) {
+                    if (query[i] == '') {
+                        if (obj.options.data[y][x] == '') {
+                            return true;
+                        }
+                    } else {
+                        if ((''+obj.options.data[y][x]).search(query[i]) >= 0 ||
+                            (''+obj.records[y][x].innerHTML).search(query[i]) >= 0) {
+                            return true;
+                        }
+                    }
+                }
+                return false;
+            }
+
+            if (_keys.length > 0) {
+                for (let col of _keys) {
+                    var query = obj.filters[col];
+                    for (var j = 0; j < obj.options.data.length; j++) {
+                        if (_keys[0] !== col) {
+                            const index = results.indexOf(j)
+                            if (index !== -1) {
+                                if (search(query, col, j)) {
+                                    results.push(j);
+                                }
+                                else {
+                                    results.splice(index, 1)
+                                }
+                            }
+                            continue
+                        }
+                    
+                        if (search(query, col, j)) {
+                            results.push(j);
+                        }
+                    }
+                }
+            }
+
             for (var j = 0; j < obj.options.data.length; j++) {
+                if (results.length > 0) {
+                    if (results.indexOf(j) === -1) {
+                        continue
+                    }
+                }
                 var k = obj.options.data[j][columnId];
                 var v = obj.records[j][columnId].innerHTML;
                 if (k && v) {
@@ -1685,8 +1735,13 @@ console.log(ret);
                     width:'100%',
                     position: (obj.options.tableOverflow == true || obj.options.fullscreen == true) ? true : false,
                     onclose: function(o) {
-                        obj.resetFilters();
+                        // obj.resetFilters();
                         obj.filters[columnId] = o.dropdown.getValue(true);
+
+                        if ((obj.filters[columnId]).length === 0) {
+                            delete obj.filters[columnId]
+                        }
+
                         obj.filter.children[columnId + 1].innerHTML = o.dropdown.getText();
                         obj.filter.children[columnId + 1].style.paddingLeft = '';
                         obj.filter.children[columnId + 1].style.paddingRight = '';
@@ -1735,13 +1790,31 @@ console.log(ret);
             return false;
         }
 
-        var query = obj.filters[columnId];
         obj.results = [];
-        for (var j = 0; j < obj.options.data.length; j++) {
-            if (search(query, columnId, j)) {
-                obj.results.push(j);
+        const keys = Object.keys(obj.filters)
+        
+        for (let col of keys) {
+            var query = obj.filters[col];
+            for (var j = 0; j < obj.options.data.length; j++) {
+                if (keys[0] !== col) {
+                    const index = obj.results.indexOf(j)
+                    if (index !== -1) {
+                        if (search(query, col, j)) {
+                            obj.results.push(j);
+                        }
+                        else {
+                            obj.results.splice(index, 1)
+                        }
+                    }
+                    continue
+                }
+                
+                if (search(query, col, j)) {
+                    obj.results.push(j);
+                }
             }
         }
+
         if (! obj.results.length) {
             obj.results = null;
         }
@@ -5692,7 +5765,7 @@ console.log(ret);
             if (obj.results) {
                 total = obj.results.length;
             } else {
-                total = obj.rows.length;
+                total = 0;
             }
         }
 
@@ -5703,6 +5776,10 @@ console.log(ret);
 
         // Hide all records from the table
         for (var j = 0; j < obj.rows.length; j++) {
+            if (! obj.results) {
+                obj.rows[j].style.display = 'none';
+                continue;
+            }
             if (! obj.results || obj.results.indexOf(j) > -1) {
                 if (index < total) {
                     obj.tbody.appendChild(obj.rows[j]);
@@ -6903,6 +6980,12 @@ console.log(ret);
                 }
                 obj.headers[i].classList.add('jexcel_freezed');
                 obj.headers[i].style.left = width + 'px';
+
+                if (obj.filter) {
+                    obj.filter.children[i + 1].classList.add('jexcel_freezed');
+                    obj.filter.children[i + 1].style.left = width + 'px';
+                }
+
                 for (var j = 0; j < obj.rows.length; j++) {
                     if (obj.rows[j] && obj.records[j][i]) {
                         var shifted = (scrollLeft + (i > 0 ? obj.records[j][i-1].style.width : 0)) - 51 + 'px';
@@ -6915,6 +6998,12 @@ console.log(ret);
             for (var i = 0; i < obj.options.freezeColumns; i++) {
                 obj.headers[i].classList.remove('jexcel_freezed');
                 obj.headers[i].style.left = '';
+
+                if (obj.filter) {
+                    obj.filter.children[i + 1].classList.remove('jexcel_freezed');
+                    obj.filter.children[i + 1].style.left = '';
+                }
+
                 for (var j = 0; j < obj.rows.length; j++) {
                     if (obj.records[j][i]) {
                         obj.records[j][i].classList.remove('jexcel_freezed');
